@@ -225,6 +225,59 @@
         
         // --- Initialization and Event Setup ---
 
+        // --- REGISTRATION FORM HANDLER ---
+        async function handleRegistrationSubmit(event) {
+            event.preventDefault();
+
+            const form = event.target;
+            const submitBtn = document.getElementById('submit-btn');
+            const submitText = document.getElementById('submit-text');
+            const errorDiv = document.getElementById('form-error');
+            const errorText = document.getElementById('form-error-text');
+
+            // Hide previous error
+            errorDiv.classList.add('hidden');
+
+            // Disable button and show loading
+            submitBtn.disabled = true;
+            submitText.textContent = 'Odesílám...';
+
+            try {
+                const formData = new FormData(form);
+
+                const response = await fetch('/api/registrace', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Success - redirect to thank you page
+                    window.location.href = '/registrace-uspesna.html';
+                } else {
+                    // Show error
+                    errorText.textContent = data.error || 'Nastala neočekávaná chyba';
+                    errorDiv.classList.remove('hidden');
+
+                    // Reset Turnstile widget
+                    if (typeof turnstile !== 'undefined') {
+                        turnstile.reset();
+                    }
+                }
+            } catch (error) {
+                errorText.textContent = 'Nepodařilo se odeslat formulář. Zkuste to prosím znovu.';
+                errorDiv.classList.remove('hidden');
+            } finally {
+                // Re-enable button
+                submitBtn.disabled = false;
+                submitText.textContent = 'Registrovat se';
+
+                // Re-create icons (for the button icon)
+                lucide.createIcons();
+            }
+        }
+
         // Fixes the TypeError by ensuring the script runs after the DOM elements exist.
         window.onload = function() {
             // 1. Initialize Icons
@@ -234,6 +287,12 @@
             const generateButton = document.getElementById('generate-btn');
             if (generateButton) {
                 generateButton.addEventListener('click', handleAICoachGeneration);
+            }
+
+            // 3. Setup Registration Form Handler
+            const registrationForm = document.getElementById('registration-form');
+            if (registrationForm) {
+                registrationForm.addEventListener('submit', handleRegistrationSubmit);
             }
         };
 
@@ -699,7 +758,15 @@
             </div>
 
             <div class="bg-brand-gray p-8 rounded-xl border border-white/10 shadow-2xl">
-                <form id="registration-form" action="/api/registrace" method="POST" class="space-y-6">
+                <!-- Error Message -->
+                <div id="form-error" class="hidden mb-6 p-4 rounded-lg bg-red-500/20 border border-red-500/50 text-red-400">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="alert-circle" class="w-5 h-5 shrink-0"></i>
+                        <span id="form-error-text"></span>
+                    </div>
+                </div>
+
+                <form id="registration-form" class="space-y-6">
                     <div>
                         <label for="jmeno" class="block text-sm font-medium text-brand-gold mb-2 uppercase tracking-wide">Jméno a příjmení</label>
                         <input
@@ -729,10 +796,11 @@
 
                     <button
                         type="submit"
-                        class="w-full bg-gradient-to-r from-brand-gold to-yellow-500 text-brand-dark hover:from-yellow-400 hover:to-yellow-300 px-6 py-4 rounded-lg text-lg font-heading font-bold uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2"
+                        id="submit-btn"
+                        class="w-full bg-gradient-to-r from-brand-gold to-yellow-500 text-brand-dark hover:from-yellow-400 hover:to-yellow-300 px-6 py-4 rounded-lg text-lg font-heading font-bold uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        <i data-lucide="user-plus" class="w-5 h-5"></i>
-                        Registrovat se
+                        <i data-lucide="user-plus" class="w-5 h-5" id="submit-icon"></i>
+                        <span id="submit-text">Registrovat se</span>
                     </button>
                 </form>
 
