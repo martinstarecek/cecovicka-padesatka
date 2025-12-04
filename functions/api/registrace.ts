@@ -1,4 +1,5 @@
 import type { Env, TurnstileResponse, FormDataFields } from "../types";
+import { verificationEmailTemplate } from "../email-templates";
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
     const { DB, TURNSTILE_SECRET, RESEND_API_KEY } = context.env;
@@ -99,15 +100,8 @@ async function sendVerificationEmail(
         body: JSON.stringify({
             from: "Čečovická padesátka <info@cecovicka-padesatka.cz>",
             to: email,
-            subject: "Potvrzení registrace - Čečovická padesátka",
-            html: `
-                <h1>Ahoj ${escapeHtml(jmeno)},</h1>
-                <p>Děkujeme za registraci na závod Čečovická padesátka.</p>
-                <p>Pro dokončení registrace klikni na odkaz níže:</p>
-                <p><a href="${verifyUrl}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;">Potvrdit registraci</a></p>
-                <p>Odkaz je platný 24 hodin.</p>
-                <p>Pokud jsi registraci neprováděl/a, tento email ignoruj.</p>
-            `,
+            subject: "Ověř svůj email - Čečovická padesátka",
+            html: verificationEmailTemplate(jmeno, verifyUrl),
         }),
     });
 
@@ -116,14 +110,6 @@ async function sendVerificationEmail(
         console.error("Resend error:", response.status, errorBody);
         throw new Error("Nepodařilo se odeslat ověřovací email");
     }
-}
-
-function escapeHtml(text: string): string {
-    return text
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
 }
 
 function handleError(error: unknown): Response {

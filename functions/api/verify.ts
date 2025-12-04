@@ -1,7 +1,8 @@
 import type { Env, Registrace } from "../types";
+import { confirmationEmailTemplate } from "../email-templates";
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
-    const { DB } = context.env;
+    const { DB, RESEND_API_KEY } = context.env;
     const url = new URL(context.request.url);
     const token = url.searchParams.get("token");
 
@@ -35,12 +36,47 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             .bind(token)
             .run();
 
+        // Odeslat potvrzovací email
+        await sendConfirmationEmail(
+            registrace.email,
+            registrace.jmeno,
+            url.origin,
+            RESEND_API_KEY
+        );
+
         return createRedirect(url.origin, "success");
     } catch (error) {
         console.error("Verify error:", error);
         return createErrorResponse("Interní chyba serveru", 500);
     }
 };
+
+async function sendConfirmationEmail(
+    email: string,
+    jmeno: string,
+    websiteUrl: string,
+    apiKey: string
+): Promise<void> {
+    const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            from: "Čečovická padesátka <info@cecovicka-padesatka.cz>",
+            to: email,
+            subject: "Registrace dokončena! - Čečovická padesátka",
+            html: confirmationEmailTemplate(jmeno, websiteUrl),
+        }),
+    });
+
+    if (!response.ok) {
+        const errorBody = await response.text();
+        console.error("Resend confirmation error:", response.status, errorBody);
+        // Neházíme chybu - registrace proběhla, jen se nepodařilo odeslat potvrzení
+    }
+}
 
 function createRedirect(origin: string, status: string): Response {
     if (status === "success") {
