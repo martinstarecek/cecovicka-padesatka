@@ -131,8 +131,9 @@ function handleError(error: unknown): Response {
         return Response.json({ error: error.message }, { status: 409 });
     }
 
-    console.error("Unexpected error:", error);
-    return Response.json({ error: "Interní chyba serveru" }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Unexpected error:", errorMessage, error);
+    return Response.json({ error: "Interní chyba serveru", details: errorMessage }, { status: 500 });
 }
 
 class ValidationError extends Error {
