@@ -1,7 +1,7 @@
 import type { Env, TurnstileResponse, FormDataFields } from "../types";
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
-    const { DB, TURNSTILE_SECRET, SENDGRID_API_KEY } = context.env;
+    const { DB, TURNSTILE_SECRET, RESEND_API_KEY } = context.env;
 
     try {
         const fields = await parseFormData(context.request);
@@ -15,7 +15,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         await insertRegistrace(DB, fields, token, expiresAt);
 
         const verifyUrl = `${new URL(context.request.url).origin}/api/verify?token=${token}`;
-        await sendVerificationEmail(fields.email, fields.jmeno, verifyUrl, SENDGRID_API_KEY);
+        await sendVerificationEmail(fields.email, fields.jmeno, verifyUrl, RESEND_API_KEY);
 
         return Response.json({ success: true, message: "Na váš email jsme odeslali ověřovací odkaz" });
     } catch (error) {
@@ -90,35 +90,30 @@ async function sendVerificationEmail(
     verifyUrl: string,
     apiKey: string
 ): Promise<void> {
-    const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
+    const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
             Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
         },
         body: JSON.stringify({
-            personalizations: [{ to: [{ email }] }],
-            from: { email: "info@cecovicka-padesatka.cz", name: "Čečovická padesátka" },
+            from: "Čečovická padesátka <info@cecovicka-padesatka.cz>",
+            to: email,
             subject: "Potvrzení registrace - Čečovická padesátka",
-            content: [
-                {
-                    type: "text/html",
-                    value: `
-                        <h1>Ahoj ${escapeHtml(jmeno)},</h1>
-                        <p>Děkujeme za registraci na závod Čečovička padesátka.</p>
-                        <p>Pro dokončení registrace klikni na odkaz níže:</p>
-                        <p><a href="${verifyUrl}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;">Potvrdit registraci</a></p>
-                        <p>Odkaz je platný 24 hodin.</p>
-                        <p>Pokud jsi registraci neprováděl/a, tento email ignoruj.</p>
-                    `,
-                },
-            ],
+            html: `
+                <h1>Ahoj ${escapeHtml(jmeno)},</h1>
+                <p>Děkujeme za registraci na závod Čečovická padesátka.</p>
+                <p>Pro dokončení registrace klikni na odkaz níže:</p>
+                <p><a href="${verifyUrl}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;">Potvrdit registraci</a></p>
+                <p>Odkaz je platný 24 hodin.</p>
+                <p>Pokud jsi registraci neprováděl/a, tento email ignoruj.</p>
+            `,
         }),
     });
 
     if (!response.ok) {
         const errorBody = await response.text();
-        console.error("SendGrid error:", response.status, errorBody);
+        console.error("Resend error:", response.status, errorBody);
         throw new Error("Nepodařilo se odeslat ověřovací email");
     }
 }

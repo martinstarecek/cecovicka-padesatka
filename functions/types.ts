@@ -1,6 +1,6 @@
 export interface Env {
     DB: D1Database;
-    SENDGRID_API_KEY: string;
+    RESEND_API_KEY: string;
     TURNSTILE_SECRET: string;
 }
 
