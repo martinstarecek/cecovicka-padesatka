@@ -60,6 +60,27 @@ async function handleRegistrationSubmit(event) {
     }
 }
 
+// Fetch and display registration stats
+async function loadStats() {
+    try {
+        const response = await fetch('/api/stats');
+        const data = await response.json();
+
+        if (response.ok && data.count > 0) {
+            const statsCounter = document.getElementById('stats-counter');
+            const statsCount = document.getElementById('stats-count');
+
+            if (statsCounter && statsCount) {
+                statsCount.textContent = data.count;
+                statsCounter.classList.remove('hidden');
+                lucide.createIcons();
+            }
+        }
+    } catch (error) {
+        // Silently fail - stats are not critical
+    }
+}
+
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize Lucide Icons
@@ -70,4 +91,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (registrationForm) {
         registrationForm.addEventListener('submit', handleRegistrationSubmit);
     }
+
+    // Load registration stats
+    loadStats();
 });
