@@ -17,7 +17,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         // const verifyUrl = `${new URL(context.request.url).origin}/api/verify?token=${token}`;
         // await sendVerificationEmail(fields.email, fields.jmeno, verifyUrl, RESEND_API_KEY);
 
-        return Response.redirect("/registrace-uspesna.html", 303);
+        const redirectUrl = new URL("/registrace-uspesna.html", context.request.url).toString();
+        return Response.redirect(redirectUrl, 303);
     } catch (error) {
         return handleError(error);
     }
