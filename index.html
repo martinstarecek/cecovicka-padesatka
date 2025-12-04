@@ -4,21 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Čečovická padesátka - Oslava běhu a padesátky</title>
-
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;500;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
-
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-
-    <!-- Markdown Parser -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-
+    
+    <!-- Tailwind Config - MUST be separate to define custom colors -->
     <script>
         tailwind.config = {
             theme: {
@@ -38,6 +28,17 @@
         }
     </script>
 
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;500;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Markdown Parser -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
     <style>
         .hero-bg {
             background-image: linear-gradient(rgba(15, 23, 42, 0.7), rgba(15, 23, 42, 0.8)), url('https://images.unsplash.com/photo-1542840410-3092f99611a3?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80');
@@ -45,7 +46,7 @@
             background-position: center;
             background-attachment: fixed;
         }
-
+        
         .map-bg {
             background-image: url('https://images.unsplash.com/photo-1524661135-423995f22d0b?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80');
             background-size: cover;
@@ -57,14 +58,14 @@
             width: 8px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
-            background: #1e293b;
+            background: #1e293b; 
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #fbbf24;
+            background: #fbbf24; 
             border-radius: 4px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #f59e0b;
+            background: #f59e0b; 
         }
 
         /* Markdown Styles within AI Response */
@@ -89,30 +90,169 @@
         .ai-response-content strong {
             color: #fff;
         }
-
-        /* Standard form field styling */
-        .form-input-field {
-            width: 100%;
-            background-color: #1e293b; /* brand-gray */
-            border: 1px solid #475569; /* slate-600 */
-            border-radius: 0.5rem;
-            padding: 0.75rem 1rem;
-            color: #f3f4f6; /* gray-100 */
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-        .form-input-field:focus {
-            outline: none;
-            border-color: #fbbf24; /* brand-gold */
-            box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.3);
-        }
-        .form-label {
-            display: block;
-            font-size: 0.875rem; /* text-sm */
-            font-weight: 500;
-            color: #e5e7eb; /* gray-200 */
-            margin-bottom: 0.5rem;
-        }
     </style>
+
+    <script>
+        // --- Main Script Logic ---
+        
+        // Function to make API call with retry mechanism (Exponential Backoff)
+        async function fetchWithRetry(apiUrl, payload, maxRetries = 5) {
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 429 && i < maxRetries - 1) {
+                            // Too many requests, retry
+                            const delay = Math.pow(2, i) * 1000;
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            continue;
+                        }
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    return response.json();
+
+                } catch (error) {
+                    if (i === maxRetries - 1) {
+                        throw error;
+                    }
+                    const delay = Math.pow(2, i) * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+
+        // --- AI COACH HANDLER LOGIC ---
+        async function handleAICoachGeneration() {
+            const promptInput = document.getElementById('ai-prompt');
+            const prompt = promptInput.value.trim();
+            const loader = document.getElementById('response-loader');
+            const responseText = document.getElementById('response-text');
+            const placeholder = document.getElementById('response-placeholder');
+
+            if (prompt === "") {
+                console.warn("Prosím, zadejte svůj dotaz pro AI trenéra."); 
+                return;
+            }
+
+            // Show loading, hide previous content
+            loader.classList.remove('hidden');
+            responseText.classList.add('hidden');
+            placeholder.classList.add('hidden');
+            responseText.innerHTML = '';
+
+
+            // 1. Construct the System Prompt (Contextual guidance for the model)
+            const systemPrompt = `Jsi osobní tréninkový kouč pro ultra běh na 50 km (Čečovická padesátka). Trasa je okruhová (8x 6.25 km) s celkovým převýšením 850 m (zvlněný, lesní a polní terén).
+                Tvá odpověď musí být přátelská, povzbudivá a musí striktně dodržovat následující strukturu:
+                1. Krátké oslovení.
+                2. Nadpis 'Analýza a doporučení'.
+                3. Body s konkrétními tipy relevantními k profilu závodu (kopce, okruhy, regenerace).
+                Použij jednoduché značky Markdown pro formátování. Neveď konverzaci.`;
+
+            // 2. Construct the User Query (The user's specific question)
+            const userQuery = `Můj trénink je: ${prompt}. Poraď mi, jak se nejlépe připravit na Čečovickou padesátku.`;
+
+            // 3. API Details
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+            // 4. Construct the Payload
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                tools: [{ "google_search": {} }], // Use search grounding for up-to-date advice
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+            };
+
+            try {
+                const result = await fetchWithRetry(apiUrl, payload);
+                const candidate = result.candidates?.[0];
+
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    const text = candidate.content.parts[0].text;
+                    // Use marked.js to parse Markdown into HTML
+                    const htmlContent = marked.parse(text);
+                    
+                    responseText.innerHTML = htmlContent;
+                    responseText.classList.remove('hidden');
+                    
+                    // --- Display Sources (Grounding) ---
+                    let sourcesHtml = '';
+                    const groundingMetadata = candidate.groundingMetadata;
+                    if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                        const sources = groundingMetadata.groundingAttributions
+                            .map(attribution => ({
+                                uri: attribution.web?.uri,
+                                title: attribution.web?.title,
+                            }))
+                            .filter(source => source.uri && source.title);
+
+                        if (sources.length > 0) {
+                            sourcesHtml += '<hr class="my-4 border-white/10">';
+                            sourcesHtml += '<h4 class="text-sm font-bold text-gray-500 mb-2">Zdroje:</h4>';
+                            sourcesHtml += '<ul class="list-disc ml-5 text-xs text-gray-500 space-y-1">';
+                            sources.forEach(source => {
+                                sourcesHtml += `<li><a href="${source.uri}" target="_blank" class="hover:text-brand-gold hover:underline">${source.title}</a></li>`;
+                            });
+                            sourcesHtml += '</ul>';
+                        }
+                    }
+                    responseText.innerHTML += sourcesHtml;
+
+                } else {
+                    responseText.innerHTML = '<p class="text-red-400">Omlouváme se, AI trenér nedokázal generovat odpověď. Zkuste to prosím s jiným dotazem.</p>';
+                    responseText.classList.remove('hidden');
+                }
+
+            } catch (error) {
+                console.error("API Call Error:", error);
+                responseText.innerHTML = '<p class="text-red-400">Vyskytla se chyba při komunikaci s AI službou. Zkontrolujte připojení nebo zkuste později.</p>';
+                responseText.classList.remove('hidden');
+            } finally {
+                loader.classList.add('hidden');
+            }
+        }
+        
+        // --- Initialization and Event Setup ---
+
+        // Fixes the TypeError by ensuring the script runs after the DOM elements exist.
+        window.onload = function() {
+            // 1. Initialize Icons
+            lucide.createIcons();
+
+            // 2. Setup AI Coach Event Listener (Fix)
+            const generateButton = document.getElementById('generate-btn');
+            if (generateButton) {
+                generateButton.addEventListener('click', handleAICoachGeneration);
+            }
+        };
+
+        // Mobile Menu Toggle
+        function toggleMenu() {
+            const menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('hidden');
+        }
+
+        // Navbar Scroll Effect
+        window.addEventListener('scroll', function() {
+            const navbar = document.getElementById('navbar');
+            if (window.scrollY > 50) {
+                navbar.classList.add('shadow-lg');
+                navbar.classList.replace('bg-brand-dark/90', 'bg-brand-dark');
+            } else {
+                navbar.classList.remove('shadow-lg');
+                navbar.classList.replace('bg-brand-dark', 'bg-brand-dark/90');
+            }
+        });
+
+    </script>
 </head>
 <body class="bg-brand-dark text-gray-200 font-body antialiased">
 
@@ -130,8 +270,12 @@
                         <a href="#trasa" class="hover:text-brand-gold transition-colors px-3 py-2 rounded-md text-sm font-medium uppercase tracking-wide">Trasa</a>
                         <a href="#detaily-trate" class="hover:text-brand-gold transition-colors px-3 py-2 rounded-md text-sm font-medium uppercase tracking-wide">Detaily tratě</a>
                         <a href="#harmonogram" class="hover:text-brand-gold transition-colors px-3 py-2 rounded-md text-sm font-medium uppercase tracking-wide">Harmonogram</a>
-                        <a href="#ai-coach" class="text-brand-gold hover:text-white transition-colors px-3 py-2 rounded-md text-sm font-medium uppercase tracking-wide flex items-center gap-1"><i data-lucide="sparkles" class="w-4 h-4"></i> AI Trenér</a>
-                        <a href="#registrace" class="bg-brand-gold text-brand-dark hover:bg-yellow-400 px-6 py-2 rounded-full text-sm font-bold uppercase tracking-wide transition-all transform hover:scale-105 shadow-lg shadow-brand-gold/20">Registrace</a>
+                        <!-- AI Coach Link Commented Out -->
+                        <!-- <a href="#ai-coach" class="text-brand-gold hover:text-white transition-colors px-3 py-2 rounded-md text-sm font-medium uppercase tracking-wide flex items-center gap-1"><i data-lucide="sparkles" class="w-4 h-4"></i> AI Trenér</a> -->
+                        
+                        <div class="bg-gray-700 text-white px-6 py-2 rounded-full text-sm font-bold uppercase tracking-wide">
+                            Registrace (již brzy)
+                        </div>
                     </div>
                 </div>
                 <div class="-mr-2 flex md:hidden">
@@ -141,7 +285,7 @@
                 </div>
             </div>
         </div>
-
+        
         <!-- Mobile menu -->
         <div id="mobile-menu" class="hidden md:hidden bg-brand-gray border-b border-white/10">
             <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
@@ -149,8 +293,8 @@
                 <a href="#trasa" onclick="toggleMenu()" class="hover:text-brand-gold block px-3 py-2 rounded-md text-base font-medium">Trasa</a>
                 <a href="#detaily-trate" onclick="toggleMenu()" class="hover:text-brand-gold block px-3 py-2 rounded-md text-base font-medium">Detaily tratě</a>
                 <a href="#harmonogram" onclick="toggleMenu()" class="hover:text-brand-gold block px-3 py-2 rounded-md text-base font-medium">Harmonogram</a>
-                <a href="#ai-coach" onclick="toggleMenu()" class="text-brand-gold block px-3 py-2 rounded-md text-base font-medium flex items-center gap-2"><i data-lucide="sparkles" class="w-4 h-4"></i> AI Trenér</a>
-                <a href="#registrace" onclick="toggleMenu()" class="text-brand-gold font-bold block px-3 py-2 rounded-md text-base">Registrovat se</a>
+                <!-- <a href="#ai-coach" onclick="toggleMenu()" class="text-brand-gold block px-3 py-2 rounded-md text-base font-medium flex items-center gap-2"><i data-lucide="sparkles" class="w-4 h-4"></i> AI Trenér</a> -->
+                <a href="#" onclick="toggleMenu()" class="text-gray-500 font-bold block px-3 py-2 rounded-md text-base">Registrace (již brzy)</a>
             </div>
         </div>
     </nav>
@@ -171,12 +315,16 @@
                 <br>Přijď se bavit a poznat lidi na trati i po závodě.
             </p>
             <div class="flex flex-col md:flex-row gap-4 justify-center items-center">
-                <a href="#registrace" class="w-full md:w-auto bg-brand-gold text-brand-dark hover:bg-yellow-400 px-8 py-4 rounded text-lg font-heading font-bold uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(251,191,36,0.3)]">
-                    Chci běžet
-                </a>
+                <!-- Tlačítko REGISTRACE je zde nahrazeno -->
+                <div class="w-full md:w-auto bg-gray-600 text-white px-8 py-4 rounded text-lg font-heading font-bold uppercase tracking-widest shadow-lg cursor-not-allowed">
+                    Registrace již brzy
+                </div>
+                <!-- AI Coach Button Commented Out -->
+                <!-- 
                 <a href="#ai-coach" class="w-full md:w-auto border border-white/30 hover:border-brand-gold hover:text-brand-gold hover:bg-white/5 px-8 py-4 rounded text-lg font-heading font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2">
                     <i data-lucide="sparkles" class="w-5 h-5"></i> Zkusit AI Trenéra
-                </a>
+                </a> 
+                -->
             </div>
         </div>
     </section>
@@ -194,11 +342,11 @@
                     <div class="text-sm font-bold uppercase tracking-wide opacity-80">Převýšení</div>
                 </div>
                 <div class="p-2">
-                    <div class="text-4xl font-heading font-bold mb-1">50TKY</div>
+                    <div class="text-4xl font-heading font-bold mb-1">JUBILANTI</div>
                     <div class="text-sm font-bold uppercase tracking-wide opacity-80">Speciální ocenění</div>
                 </div>
                 <div class="p-2">
-                    <div class="text-4xl font-heading font-bold mb-1">21. 6.</div>
+                    <div class="text-4xl font-heading font-bold mb-1">1. 10. 2027</div>
                     <div class="text-sm font-bold uppercase tracking-wide opacity-80">Datum startu</div>
                 </div>
             </div>
@@ -220,7 +368,7 @@
                     <p class="text-gray-400 text-lg mb-8 leading-relaxed">
                         Záměrně jsme zvolili **okruhový formát (8x 6,25 km)**, abychom maximalizovali atmosféru a usnadnili fandění. Čekají vás polní cesty, lesní traily, technické seběhy i táhlá stoupání. V cíli pak velkolepá oslava se skvělým jídlem, hudbou a atmosférou, na kterou jen tak nezapomenete.
                     </p>
-
+                    
                     <ul class="space-y-4">
                         <li class="flex items-start">
                             <i data-lucide="check-circle" class="text-brand-gold mt-1 mr-3 h-5 w-5"></i>
@@ -238,7 +386,7 @@
                 </div>
                 <div class="relative">
                     <div class="absolute -inset-4 bg-brand-gold/20 rounded-lg blur-lg"></div>
-                    <img src="https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?ixlib=rb-1.2.1&auto=format&fit=crop&w=1000&q=80" alt="Běžec v přírodě" class="relative rounded-lg shadow-2xl border border-white/10 grayscale hover:grayscale-0 transition-all duration-500">
+                    <img src="https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?ixlib=rb-1.2.1&auto=format&fit=crop&w=1000&q=80" onerror="this.onerror=null; this.src='https://placehold.co/1000x600/1e293b/fbbf24?text=Běžec+v+přírodě';" alt="Běžec v přírodě" class="relative rounded-lg shadow-2xl border border-white/10 grayscale hover:grayscale-0 transition-all duration-500">
                     <div class="absolute -bottom-6 -right-6 bg-brand-gray p-6 rounded-lg border border-white/10 shadow-xl max-w-xs">
                         <div class="flex items-center gap-4 mb-2">
                             <i data-lucide="quote" class="text-brand-gold h-8 w-8"></i>
@@ -255,7 +403,7 @@
     <section id="trasa" class="py-24 bg-brand-gray relative overflow-hidden">
         <!-- Background pattern -->
         <div class="absolute inset-0 opacity-5" style="background-image: radial-gradient(#fbbf24 1px, transparent 1px); background-size: 30px 30px;"></div>
-
+        
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div class="text-center mb-16">
                 <span class="text-brand-gold font-bold tracking-widest uppercase text-sm">Kudy povede první ročník</span>
@@ -278,7 +426,6 @@
                     <h3 class="font-heading text-xl font-bold mb-2">Profil a povrch</h3>
                     <p class="text-gray-400">Zvlněný terén s 850 m D+. Převažují lesní a polní cesty (80%).</p>
                 </div>
-                <!-- NOVÝ BOX pro okruhy -->
                 <div class="bg-brand-dark p-6 rounded-lg border border-white/5 hover:border-brand-gold/30 transition-all group">
                     <div class="bg-brand-gray w-12 h-12 rounded-full flex items-center justify-center mb-4 group-hover:bg-brand-gold transition-colors">
                         <i data-lucide="repeat" class="text-white group-hover:text-brand-dark"></i>
@@ -287,7 +434,6 @@
                     <p class="text-gray-400 font-bold text-brand-gold">Celková trať 50 km je složena z 8 okruhů po přesně 6,25 km.</p>
                     <p class="text-gray-400 text-sm mt-2">Ideální pro doprovod – uvidí vás 7x! Značení reflexním sprejem + fáborky.</p>
                 </div>
-                <!-- Původní Značení bylo přesunuto a nahrazeno -->
             </div>
 
             <!-- Fake Map Container -->
@@ -299,7 +445,7 @@
                     <button class="px-6 py-2 border border-brand-gold text-brand-gold hover:bg-brand-gold hover:text-brand-dark rounded transition-colors uppercase font-bold text-sm">
                         Stáhnout GPX
                     </button>
-                    <p class="mt-4 text-xs text-gray-400">Finální trasa bude zveřejněna 14.6.</p>
+                    <p class="mt-4 text-xs text-gray-400">Finální trasa bude zveřejněna 24. 9. 2027.</p>
                 </div>
             </div>
         </div>
@@ -317,7 +463,10 @@
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <!-- Box 1: Převýšení a Povrch -->
                 <div class="bg-brand-gray p-8 rounded-xl border border-white/10 shadow-lg">
-                    <i data-lucide="mountain-ruler" class="h-8 w-8 text-brand-gold mb-4"></i>
+                    <div class="flex items-center gap-2 mb-4">
+                        <i data-lucide="mountain-ruler" class="h-8 w-8 text-brand-gold"></i>
+                        <i data-lucide="repeat" class="h-8 w-8 text-brand-gold"></i>
+                    </div>
                     <h3 class="font-heading text-2xl font-bold mb-4 text-white">Profil 8 okruhů</h3>
                     <ul class="space-y-3 text-gray-400">
                         <li class="flex justify-between items-center border-b border-white/5 pb-2">
@@ -382,12 +531,12 @@
         </div>
     </section>
 
-    <!-- AI Coach Section -->
+    <!-- AI Coach Section (COMMENTED OUT) -->
+    <!--
     <section id="ai-coach" class="py-24 bg-brand-gray relative border-t border-brand-gold/20">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
                 <div>
-                    <!-- Všimněte si, že jsem odstranil "Powered by Gemini" z textu pro obecnou proxy implementaci -->
                     <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-gold/10 text-brand-gold text-sm font-bold uppercase tracking-wider mb-4 border border-brand-gold/20">
                         <i data-lucide="sparkles" class="w-4 h-4"></i> Osobní AI Rádce
                     </div>
@@ -395,15 +544,15 @@
                         Osobní <span class="text-brand-gold">AI Trenér</span>
                     </h2>
                     <p class="text-gray-400 text-lg mb-8 leading-relaxed">
-                        Nevíš, jak potrénovat poslední týdny před startem? Nebo tě trápí konkrétní problém?
+                        Nevíš, jak potrénovat poslední týdny před startem? Nebo tě trápí konkrétní problém? 
                         Popiš našemu AI trenérovi svou situaci a získej okamžitou radu přizpůsobenou profilu Čečovické padesátky.
                         Tato funkce volá **backendový proxy server**, čímž je tvůj klíč chráněn.
                     </p>
-
+                    
                     <div class="bg-brand-dark p-6 rounded-xl border border-white/10 shadow-xl">
                         <label for="ai-prompt" class="block text-sm font-medium text-brand-gold mb-2 uppercase tracking-wide">Jak jsi na tom?</label>
                         <textarea id="ai-prompt" rows="4" class="w-full bg-brand-gray border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-brand-gold transition-colors resize-none mb-4" placeholder="Např: Běhám 3x týdně kolem 10 km, ale v kopcích mi dochází dech. Mám 4 týdny do závodu. Co mám dělat?"></textarea>
-
+                        
                         <button id="generate-btn" class="w-full bg-gradient-to-r from-brand-gold to-yellow-500 text-brand-dark hover:from-yellow-400 hover:to-yellow-300 px-6 py-3 rounded-lg text-lg font-heading font-bold uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2">
                             <i data-lucide="zap" class="w-5 h-5"></i> Získat plán
                         </button>
@@ -419,38 +568,36 @@
                             <div class="w-3 h-3 rounded-full bg-green-500/50"></div>
                         </div>
                     </div>
-
+                    
                     <div id="ai-response-container" class="flex-1 p-6 overflow-y-auto custom-scrollbar relative">
-                        <!-- Placeholder State -->
                         <div id="response-placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-gray-500 p-8 text-center opacity-50">
                             <i data-lucide="bot" class="w-16 h-16 mb-4 opacity-50"></i>
                             <p class="text-sm">Zadej svůj dotaz vlevo a čekej na strategii.</p>
                         </div>
 
-                        <!-- Loading State -->
                         <div id="response-loader" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-brand-dark/90 backdrop-blur-sm z-10">
                             <div class="w-12 h-12 border-4 border-brand-gold border-t-transparent rounded-full animate-spin mb-4"></div>
                             <p class="text-brand-gold font-bold animate-pulse">Generuji tréninkový plán...</p>
                         </div>
 
-                        <!-- Content State -->
                         <div id="response-text" class="text-gray-300 ai-response-content hidden text-sm md:text-base"></div>
                     </div>
                 </div>
             </div>
         </div>
     </section>
+    -->
 
     <!-- Harmonogram -->
     <section id="harmonogram" class="py-24 bg-brand-dark">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-16">
                 <h2 class="font-heading text-4xl font-bold mb-4 text-white">Harmonogram Dne</h2>
-                <p class="text-gray-400">Sobota 21. června 2025</p>
+                <p class="text-gray-400">1. října 2027</p>
             </div>
 
             <div class="space-y-8 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-brand-gold before:to-transparent">
-
+                
                 <!-- Item 1 -->
                 <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     <div class="flex items-center justify-center w-10 h-10 rounded-full border border-brand-gold bg-brand-dark shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
@@ -527,13 +674,13 @@
                     </p>
 
                     <div class="bg-brand-dark p-6 rounded-xl border border-white/10 shadow-lg">
-                        <h3 class="font-heading text-xl font-bold mb-2 text-brand-gold flex items-center gap-2"><i data-lucide="trophy" class="w-5 h-5"></i> Speciální ocenění Padesátek!</h3>
+                        <h3 class="font-heading text-xl font-bold mb-2 text-brand-gold flex items-center gap-2"><i data-lucide="trophy" class="w-5 h-5"></i> Speciální ocenění Jubilantů!</h3>
                         <p class="text-gray-400 text-sm">
                             Všichni účastníci, kterým v den závodu bude 50 let (bez ohledu na přesné datum narozenin), získají speciální pamětní dar. Běh je skvělý způsob, jak oslavit půlstoletí života – a my to oslavíme s vámi!
                         </p>
                     </div>
                 </div>
-
+                
                 <div class="relative">
                     <!-- Opravený obrázek - používáme placeholder pro univerzálnost a funkčnost -->
                     <img src="https://placehold.co/1000x600/1e293b/fbbf24?text=Koncert+v+Kulturn%C3%ADm+dom%C4%9B" onerror="this.onerror=null; this.src='https://placehold.co/1000x600/1e293b/fbbf24?text=Koncert+v+Kulturn%C3%ADm+dom%C4%9B';" alt="Koncert a oslava" class="relative rounded-lg shadow-2xl border border-white/10">
@@ -544,83 +691,8 @@
             </div>
         </div>
     </section>
-
-    <!-- Registrace (NOVÁ SEKCE) -->
-    <section id="registrace" class="py-24 bg-brand-dark">
-        <div class="max-w-xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center mb-12">
-                <span class="text-brand-gold font-bold tracking-widest uppercase text-sm">Poslední místa k dispozici</span>
-                <h2 class="font-heading text-4xl font-bold mt-2 mb-4 text-white">Registrace na 1. ročník</h2>
-                <p class="text-gray-400 text-lg">Vyplňte, prosím, formulář. Startovné je 850,- Kč. Po odeslání obdržíte pokyny k platbě.</p>
-                <div class="w-24 h-1 bg-brand-gold mx-auto mt-4"></div>
-            </div>
-
-            <div class="bg-brand-gray p-8 md:p-10 rounded-xl border border-white/10 shadow-2xl">
-                <form onsubmit="handleRegistration(event)">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-                        <!-- Jméno a Příjmení -->
-                        <div>
-                            <label for="full_name" class="form-label">Jméno a příjmení</label>
-                            <input type="text" id="full_name" required class="form-input-field" placeholder="Jan Novák">
-                        </div>
-
-                        <!-- Email -->
-                        <div>
-                            <label for="email" class="form-label">Email</label>
-                            <input type="email" id="email" required class="form-input-field" placeholder="vas@email.cz">
-                        </div>
-
-                        <!-- Datum narození (Pro správné zařazení do kategorií) -->
-                        <div>
-                            <label for="dob" class="form-label">Datum narození</label>
-                            <!-- Input type date zajistí správný formát -->
-                            <input type="date" id="dob" required class="form-input-field text-gray-400">
-                        </div>
-
-                        <!-- Kategorie (zjednodušený výběr pro vizuální ukázku) -->
-                        <div>
-                            <label for="category" class="form-label">Kategorie (Věk/Pohlaví)</label>
-                            <select id="category" required class="form-input-field appearance-none cursor-pointer">
-                                <option value="" disabled selected>Vyberte kategorii</option>
-                                <option value="muzi_do_39">Muži do 39 let</option>
-                                <option value="muzi_40_49">Muži 40-49 let</option>
-                                <option value="muzi_50_plus">Muži 50+</option>
-                                <option value="zeny_do_39">Ženy do 39 let</option>
-                                <option value="zeny_40_49">Ženy 40-49 let</option>
-                                <option value="zeny_50_plus">Ženy 50+</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Nouzový kontakt (důležité pro ultra) -->
-                    <div class="mt-6">
-                        <label for="emergency_contact" class="form-label">Nouzový kontakt (Jméno a tel. číslo)</label>
-                        <input type="text" id="emergency_contact" required class="form-input-field" placeholder="Jana Nováková, 777 123 456">
-                        <p class="text-xs text-gray-500 mt-1">V případě nehody kontaktujeme tuto osobu.</p>
-                    </div>
-
-                    <!-- Souhlas s podmínkami -->
-                    <div class="mt-8 flex items-start">
-                        <input type="checkbox" id="consent" required class="mt-1 h-4 w-4 text-brand-gold bg-brand-gray border-gray-600 rounded focus:ring-brand-gold">
-                        <label for="consent" class="ml-3 text-sm text-gray-400">
-                            Souhlasím s <a href="#" class="text-brand-gold hover:underline">podmínkami závodu</a>, prohlašuji, že startuji na vlastní nebezpečí a jsem seznámen s povinnou výbavou.
-                        </label>
-                    </div>
-
-                    <!-- Tlačítko Odeslat -->
-                    <button type="submit" class="mt-8 w-full bg-brand-gold text-brand-dark hover:bg-yellow-400 px-6 py-3 rounded-lg text-lg font-heading font-bold uppercase tracking-widest transition-all shadow-lg shadow-brand-gold/20 flex items-center justify-center gap-2">
-                        <i data-lucide="send" class="w-5 h-5"></i> Registrovat se
-                    </button>
-
-                </form>
-
-                <!-- Confirmation Message Box (Will be displayed via JS after form submit) -->
-                <div id="registration-message" class="hidden mt-6 p-4 rounded-lg text-center font-bold" role="alert"></div>
-
-            </div>
-        </div>
-    </section>
+    
+    <!-- Původní sekce REGISTRACE a SEZNAM REGISTRACÍ byly odstraněny. -->
 
     <!-- Footer -->
     <footer class="bg-brand-dark pt-16 pb-8 border-t border-white/5">
@@ -660,175 +732,5 @@
             </div>
         </div>
     </footer>
-
-    <script>
-        // Initialize Icons
-        lucide.createIcons();
-
-        // Mobile Menu Toggle
-        function toggleMenu() {
-            const menu = document.getElementById('mobile-menu');
-            menu.classList.toggle('hidden');
-        }
-
-        // Navbar Scroll Effect
-        window.addEventListener('scroll', function() {
-            const navbar = document.getElementById('navbar');
-            if (window.scrollY > 50) {
-                navbar.classList.add('shadow-lg');
-                navbar.classList.replace('bg-brand-dark/90', 'bg-brand-dark');
-            } else {
-                navbar.classList.remove('shadow-lg');
-                navbar.classList.replace('bg-brand-dark', 'bg-brand-dark/90');
-            }
-        });
-
-        // --- MOCK REGISTRATION HANDLER ---
-        function handleRegistration(event) {
-            event.preventDefault();
-            const messageBox = document.getElementById('registration-message');
-            messageBox.classList.remove('hidden', 'bg-red-900/30', 'bg-brand-green/30', 'text-red-300', 'text-brand-green');
-
-            // Získání dat z formuláře (Mock, data se nikam neodesílají)
-            const fullName = document.getElementById('full_name').value;
-            const email = document.getElementById('email').value;
-            const category = document.getElementById('category').value;
-
-            if (category === "") {
-                messageBox.classList.add('bg-red-900/30', 'text-red-300');
-                messageBox.innerHTML = 'Prosím, vyberte kategorii.';
-                return;
-            }
-
-            // Simulace úspěšné registrace
-            messageBox.classList.add('bg-brand-green/30', 'text-brand-green');
-            messageBox.innerHTML = `Děkujeme, ${fullName}! Vaše předběžná registrace (Kategorie: ${category.toUpperCase().replace(/_/g, ' ')}) byla přijata. <br> Zkontrolujte svůj email (${email}) pro pokyny k platbě.`;
-
-            // Vyčištění formuláře po úspěšné "registraci"
-            event.target.reset();
-
-            // Přejeme na zprávu
-            messageBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-
-
-        // --- AI Coach: Proxy Implementation Mock (Simulace volání na váš backend) ---
-        const generateBtn = document.getElementById('generate-btn');
-        const promptInput = document.getElementById('ai-prompt');
-        const responseContainer = document.getElementById('response-text');
-        const responsePlaceholder = document.getElementById('response-placeholder');
-        const responseLoader = document.getElementById('response-loader');
-
-        // MOCK ENDPOINT URL - V ostrém provozu by to byla vaše adresa: https://vas-server.cz/api/ai-coach
-        const MOCK_PROXY_URL = '/api/ai-coach';
-
-        // PŘÍPRAVA PROMPT pro backend (Backend ho poté zabalí do API volání Ollama/OpenAI)
-        const SYSTEM_INSTRUCTION = "Jsi zkušený ultra-maratonský trenér a mentor. Uživatel se chystá na závod 'Čečovická padesátka' (50 km, 850m převýšení, okruhový formát 8x 6,25km, terén). Úkol: 1. Poskytni stručnou analýzu situace. 2. Dej 3 konkrétní rady nebo mini tréninkový plán s ohledem na opakované průběhy okruhem. 3. Buď povzbuzující, drsný ale férový. 4. Odpověz česky. 5. Použij Markdown pro formátování.";
-
-        // Používáme původní Google Gemini API, ale s upraveným payloadem, abychom simulovali Ollama/OpenAI kompatibilní volání z proxy,
-        // kde klíč zůstává v bezpečí (v reálném deploymentu by se volala vaše proxy URL)
-        const REAL_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=`;
-        const API_KEY = ""; // V ostrém provozu by tento klíč chyběl a proxy by ho doplnilo na backendu.
-
-        async function fetchWithRetry(url, options, retries = 3) {
-            for (let i = 0; i < retries; i++) {
-                try {
-                    const response = await fetch(url, options);
-                    if (!response.ok) {
-                        // Throw error to trigger retry or final catch block
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response;
-                } catch (error) {
-                    if (i < retries - 1) {
-                        const delay = Math.pow(2, i) * 1000; // Exponential backoff: 1s, 2s, 4s
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                    } else {
-                        throw error; // Re-throw last error
-                    }
-                }
-            }
-        }
-
-
-        generateBtn.addEventListener('click', async () => {
-            const userPrompt = promptInput.value.trim();
-            if (!userPrompt) {
-                // V ostrém provozu by se místo alertu použil custom modal
-                const customAlert = document.createElement('div');
-                customAlert.className = "fixed inset-0 bg-black/50 flex items-center justify-center z-[999]";
-                customAlert.innerHTML = `
-                    <div class="bg-brand-dark p-6 rounded-lg shadow-xl border border-brand-gold max-w-sm text-center">
-                        <p class="text-white mb-4">Prosím, napiš něco o své kondici nebo co potřebuješ vědět.</p>
-                        <button class="bg-brand-gold text-brand-dark px-4 py-2 rounded font-bold hover:bg-yellow-400" onclick="this.closest('.fixed').remove()">Rozumím</button>
-                    </div>
-                `;
-                document.body.appendChild(customAlert);
-                return;
-            }
-
-            // UI State: Loading
-            responsePlaceholder.classList.add('hidden');
-            responseContainer.classList.add('hidden');
-            responseLoader.classList.remove('hidden');
-
-            // --- TOTO JE VOLÁNÍ NA API S INJEKTOVANÝM KLÍČEM Z ENVIRONMENTU (JAKO MOCK PROXY) ---
-            // V reálné implementaci by se volalo: await fetch(MOCK_PROXY_URL, { ...
-
-            // Pro účely tohoto prostředí zůstaneme u původního API s injektovaným klíčem,
-            // ale kód je připraven na změnu URL a odstranění klíče v ostrém provozu.
-
-            try {
-                const fullApiUrl = `${REAL_API_URL}${API_KEY}`;
-
-                // Sestavení payloadu pro Ollama/OpenAI kompatibilní volání přes proxy
-                const payload = {
-                    // Tuto strukturu by váš proxy server přeložil
-                    contents: [{ parts: [{ text: userPrompt }] }],
-                    systemInstruction: {
-                        parts: [{ text: SYSTEM_INSTRUCTION }]
-                    }
-                };
-
-                const response = await fetchWithRetry(fullApiUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                });
-
-                const data = await response.json();
-
-                if (data.error || !data.candidates || data.candidates.length === 0) {
-                     // Check for common error structure if not a 2xx response
-                    const errorMsg = data.error?.message || "Neúspěšná odpověď od AI serveru (možná chyba proxy).";
-                    throw new Error(errorMsg);
-                }
-
-                const aiText = data.candidates[0].content.parts[0].text;
-
-                // Parse Markdown to HTML
-                responseContainer.innerHTML = marked.parse(aiText);
-
-                // UI State: Success
-                responseLoader.classList.add('hidden');
-                responseContainer.classList.remove('hidden');
-
-            } catch (error) {
-                console.error('Error:', error);
-
-                // UI State: Error
-                responseLoader.classList.add('hidden');
-                responseContainer.classList.remove('hidden');
-
-                // Zobrazíme generické chybové hlášení vhodné pro Proxy/Backend
-                responseContainer.innerHTML = `<div class="p-4 bg-red-900/30 rounded-lg border border-red-700 text-red-300">
-                    <p class="font-bold mb-2">Chyba spojení s AI Trenérem!</p>
-                    <p class="text-sm">Server (Proxy) nereaguje nebo došlo k chybě při zpracování požadavku. Zkuste to prosím později.</p>
-                </div>`;
-            }
-        });
-    </script>
 </body>
 </html>
