@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="cs" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Ověřovací email byl odeslán. Zkontrolujte svou emailovou schránku.">
+    <title>Ověřte svůj email - Čečovická padesátka</title>
+
+    <!-- Preload critical resources -->
+    <link rel="preload" href="./css/style.css" as="style">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- CSS -->
+    <link href="./css/style.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;500;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+
+    <!-- Deferred Scripts -->
+    <script src="https://unpkg.com/lucide@latest" defer></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+        });
+    </script>
+</head>
+<body class="bg-brand-dark text-gray-200 font-body antialiased min-h-screen flex flex-col">
+
+    <!-- Navigation -->
+    <nav class="w-full bg-brand-dark/90 backdrop-blur-sm border-b border-white/10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-20">
+                <a href="/" class="flex-shrink-0 flex items-center gap-2">
+                    <i data-lucide="mountain" class="text-brand-gold h-8 w-8"></i>
+                    <span class="font-heading font-bold text-2xl tracking-wider text-white">ČEČOVICKÁ<span class="text-brand-gold">50</span></span>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex items-center justify-center px-4 py-16">
+        <div class="max-w-lg w-full text-center">
+            <!-- Email Icon -->
+            <div class="mb-8">
+                <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-brand-gold/20 border-2 border-brand-gold">
+                    <i data-lucide="mail" class="w-12 h-12 text-brand-gold"></i>
+                </div>
+            </div>
+
+            <!-- Heading -->
+            <h1 class="font-heading text-4xl md:text-5xl font-bold text-white mb-4">
+                Zkontroluj svůj <span class="text-brand-gold">email</span>
+            </h1>
+
+            <!-- Message -->
+            <p class="text-gray-400 text-lg mb-8 leading-relaxed">
+                Na zadanou emailovou adresu jsme ti odeslali ověřovací odkaz.
+                Klikni na něj pro dokončení registrace.
+            </p>
+
+            <!-- Info Box -->
+            <div class="bg-brand-gray p-6 rounded-xl border border-white/10 mb-8 text-left">
+                <h2 class="font-heading text-xl font-bold text-brand-gold mb-4 flex items-center gap-2">
+                    <i data-lucide="info" class="w-5 h-5"></i>
+                    Co dělat dál?
+                </h2>
+                <ul class="space-y-3 text-gray-400">
+                    <li class="flex items-start gap-3">
+                        <i data-lucide="inbox" class="w-5 h-5 text-brand-gold mt-0.5 shrink-0"></i>
+                        <span>Otevři svou emailovou schránku a hledej email od <strong class="text-white">info@cecovicka-padesatka.cz</strong></span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <i data-lucide="mouse-pointer-click" class="w-5 h-5 text-brand-gold mt-0.5 shrink-0"></i>
+                        <span>Klikni na tlačítko "Potvrdit registraci" v emailu</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <i data-lucide="folder-search" class="w-5 h-5 text-brand-gold mt-0.5 shrink-0"></i>
+                        <span>Pokud email nevidíš, zkontroluj složku <strong class="text-white">spam</strong> nebo <strong class="text-white">hromadné</strong></span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Note -->
+            <p class="text-gray-500 text-sm mb-8">
+                <i data-lucide="clock" class="w-4 h-4 inline-block mr-1"></i>
+                Ověřovací odkaz je platný 24 hodin
+            </p>
+
+            <!-- Back Button -->
+            <a href="/" class="inline-flex items-center gap-2 bg-brand-gold hover:bg-yellow-400 text-brand-dark px-8 py-4 rounded-lg text-lg font-heading font-bold uppercase tracking-widest transition-colors">
+                <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                Zpět na hlavní stránku
+            </a>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-brand-dark py-6 border-t border-white/5">
+        <div class="max-w-7xl mx-auto px-4 text-center text-gray-600 text-sm">
+            &copy; 2025 Čečovická padesátka. Všechna práva vyhrazena.
+        </div>
+    </footer>
+
+</body>
+</html>

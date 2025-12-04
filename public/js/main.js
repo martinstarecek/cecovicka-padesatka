@@ -41,7 +41,7 @@ async function handleRegistrationSubmit(event) {
         const data = await response.json();
 
         if (response.ok && data.success) {
-            window.location.href = '/registrace-uspesna.html';
+            window.location.href = '/registrace-email-odeslan.html';
         } else {
             errorText.textContent = data.error || 'Nastala neočekávaná chyba';
             errorDiv.classList.remove('hidden');
