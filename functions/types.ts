@@ -1,7 +1,7 @@
 export interface Env {
     DB: D1Database;
-    RESEND_API_KEY: string;
-    RECAPTCHA_SECRET: string;
+    // RESEND_API_KEY: string;
+    TURNSTILE_SECRET: string;
 }
 
 export interface Registrace {
@@ -14,15 +14,17 @@ export interface Registrace {
     created_at: string;
 }
 
-export interface RecaptchaResponse {
+export interface TurnstileResponse {
     success: boolean;
     challenge_ts?: string;
     hostname?: string;
     "error-codes"?: string[];
+    action?: string;
+    cdata?: string;
 }
 
 export interface FormDataFields {
     jmeno: string;
     email: string;
-    recaptchaToken: string;
+    turnstileToken: string;
 }

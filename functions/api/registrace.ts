@@ -1,23 +1,23 @@
-import type { Env, RecaptchaResponse, FormDataFields } from "../types";
+import type { Env, TurnstileResponse, FormDataFields } from "../types";
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
-    const { DB, RESEND_API_KEY, RECAPTCHA_SECRET } = context.env;
+    const { DB, TURNSTILE_SECRET } = context.env;
 
     try {
         const fields = await parseFormData(context.request);
 
         validateEmail(fields.email);
-        await verifyRecaptcha(fields.recaptchaToken, RECAPTCHA_SECRET);
+        await verifyTurnstile(fields.turnstileToken, TURNSTILE_SECRET);
 
         const token = crypto.randomUUID();
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
         await insertRegistrace(DB, fields, token, expiresAt);
 
-        const verifyUrl = `${new URL(context.request.url).origin}/api/verify?token=${token}`;
-        await sendVerificationEmail(fields.email, fields.jmeno, verifyUrl, RESEND_API_KEY);
+        // const verifyUrl = `${new URL(context.request.url).origin}/api/verify?token=${token}`;
+        // await sendVerificationEmail(fields.email, fields.jmeno, verifyUrl, RESEND_API_KEY);
 
-        return Response.redirect("/overeni-odeslano.html", 303);
+        return Response.redirect("/registrace-uspesna.html", 303);
     } catch (error) {
         return handleError(error);
     }
@@ -28,16 +28,16 @@ async function parseFormData(request: Request): Promise<FormDataFields> {
 
     const jmeno = formData.get("jmeno");
     const email = formData.get("email");
-    const recaptchaToken = formData.get("g-recaptcha-response");
+    const turnstileToken = formData.get("cf-turnstile-response");
 
-    if (!jmeno || !email || !recaptchaToken) {
+    if (!jmeno || !email || !turnstileToken) {
         throw new ValidationError("Chybí povinná pole");
     }
 
     return {
         jmeno: jmeno.toString(),
         email: email.toString(),
-        recaptchaToken: recaptchaToken.toString(),
+        turnstileToken: turnstileToken.toString(),
     };
 }
 
@@ -48,17 +48,17 @@ function validateEmail(email: string): void {
     }
 }
 
-async function verifyRecaptcha(token: string, secret: string): Promise<void> {
-    const response = await fetch("https://www.google.com/recaptcha/api/siteverify", {
+async function verifyTurnstile(token: string, secret: string): Promise<void> {
+    const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: `secret=${secret}&response=${token}`,
     });
 
-    const result: RecaptchaResponse = await response.json();
+    const result: TurnstileResponse = await response.json();
 
     if (!result.success) {
-        throw new ValidationError("reCaptcha ověření selhalo");
+        throw new ValidationError("Turnstile ověření selhalo");
     }
 }
 
