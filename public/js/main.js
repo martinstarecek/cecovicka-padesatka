@@ -60,6 +60,17 @@ async function handleRegistrationSubmit(event) {
     }
 }
 
+// Czech pluralization for "běžec"
+function pluralizeBezec(count) {
+    if (count === 1) {
+        return 'běžec';
+    } else if (count >= 2 && count <= 4) {
+        return 'běžci';
+    } else {
+        return 'běžců';
+    }
+}
+
 // Fetch and display registration stats
 async function loadStats() {
     try {
@@ -69,9 +80,11 @@ async function loadStats() {
         if (response.ok && data.count > 0) {
             const statsCounter = document.getElementById('stats-counter');
             const statsCount = document.getElementById('stats-count');
+            const statsLabel = document.getElementById('stats-label');
 
-            if (statsCounter && statsCount) {
+            if (statsCounter && statsCount && statsLabel) {
                 statsCount.textContent = data.count;
+                statsLabel.textContent = pluralizeBezec(data.count);
                 statsCounter.classList.remove('hidden');
                 lucide.createIcons();
             }
